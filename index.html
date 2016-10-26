@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>AniversarioPeru - Charla DSL 2016</title>
+
+		<meta name="description" content="Charla sobre data science">
+		<meta name="author" content="@AniversarioPeru">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="css/reveal.min.css">
+		<link rel="stylesheet" href="css/theme/default.css" id="theme">
+    <link rel="shortcut icon" href="../../favicon.png">
+		<!-- For syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- If the query includes 'print-pdf', include the PDF print sheet -->
+		<script>
+			if( window.location.search.match( /print-pdf/gi ) ) {
+				var link = document.createElement( 'link' );
+				link.rel = 'stylesheet';
+				link.type = 'text/css';
+				link.href = 'css/print/pdf.css';
+				document.getElementsByTagName( 'head' )[0].appendChild( link );
+			}
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+			<div class="slides">
+
+				<section>
+					<h2>Data Science y papeletas de transito: un caso de la vida real</h2>
+
+                    <p class="fragment"><a href="https://twitter.com/aniversarioperu">@aniversarioperu</a>
+                    <br />
+                        <img width="150px" src="aniversarioperu.png" />
+                    </p>
+
+                    <p class="fragment"><a href="https://twitter.com/carlosp420">@carlosp420</a>
+                    <br />
+                        <img width="150px" src="carlosp420.png" />
+                    </p>
+				</section>
+
+				<section>
+				    <img src="triste_historia.png" alt="Avatar">
+				</section>
+
+				<section>
+					<p>
+                    <ul>
+                        <li>Trabajaba en Scrapinghub <img src="scrapinghub.png" width="200px" /></li> 
+                        <li class="fragment">Choqué mi carro (triple choque en la Panam Norte).</li>
+                        <li class="fragment">Me pusieron una papeleta en el Callao.</li>
+                    </ul>
+					</p>
+				</section>
+
+
+				<section>
+                    <h2>Python script que chequea si papeleta está online</h2>
+
+                    <p>
+                    GET <pre> /tramites/papeletas/listados.php?transporte1=1&amp;txtbuscar=<b>5989238A</b>&amp;buscar=Buscar</pre>
+                    </p>
+                    <p>
+                        <img src="municipalidad.png" />
+                    </p>
+
+				</section>
+
+				<section>
+					<h2>Y si descargamos todas las papeletas?</h2>
+                    <p>
+                        <img src="scrapylogo.png" />
+                        <ul>
+                            <li>framework maduro</li>
+                            <li>maneja los cookies automáticamente</li>
+                            <li>reintenta requests fallidos</li>
+                            <li>requests asíncronos y en paralelo</li>
+                        </ul>
+                    </p>
+
+				</section>
+
+
+				<section>
+					<h2>Descargar papeletas de la serie A</h2>
+                    <p>
+                        desde papeleta 0 000 000 A <br />
+                        hasta papeleta 0 577 071 A
+                    </p>
+
+                    <h3 style="text-align: left;">análisis:</h3>
+                    <p>
+                       Python, Pandas, SQLite, Google Maps.
+                    </p>
+				</section>
+
+
+                <section>
+                    <h2>Cuántas papeletas tenía en la serie A?</h2>
+                    <pre><code class="hljs">import pandas as pd
+from sqlalchemy import create_engine
+
+# connect to our Sqlite database
+db = create_engine("sqlite:///papeletas.sqlite")
+
+# most common ticket
+df = pd.read_sql("SELECT infraccion FROM papeletas", db)
+total_tickets = df.count()
+print(total_tickets)</code></pre>
+
+                    <pre>
+    infraccion    117261
+    dtype: int64
+                    </pre>
+                </section>
+
+
+				<section>
+                    <h2>Cuál es la infracción más común?</h2>
+                    <img src="twitter1.png" />
+
+                    <div class="fragment">
+                    <pre><code class="hljs">most_common = df['infraccion'].value_counts()
+print(most_common.head(10))
+                </pre></code>
+
+                <pre>
+    L7     9346
+    G28    7714
+    G57    7051
+    G58    6249
+    G2     5425
+    G31    4146
+    M3     3363
+    M27    3208
+    G47    3046
+    G7     2975
+    Name: infraccion, dtype: int64
+                </pre>
+                    </div>
+
+                </section>
+
+
+				<section>
+                    <h2>Visualización de papeletas en el tiempo</h2>
+
+                    <pre><code class="hljs"># number of unpaid tickets by day
+df = pd.read_sql("SELECT * FROM papeletas", db)
+data_time = pd.to_datetime(df['fecha_infraccion'], format="%Y-%m-%d")
+number_tickets_by_date = data_time.value_counts()
+number_tickets_by_date.plot()
+                    </code></pre>
+                    <img src="plot1.png" />
+				</section>
+
+
+
+				<section>
+                    <h3 style="text-align: left;">problemas:</h3>
+                    <ul>
+                        <li>papeletas en serie A es solo una fracción de las existentes</li>
+                        <li>hay serie B, C, D, E, F, etc</li>
+                        <li>papeletas pagadas ya no están online</li>
+                        <li>pérdida de tiempo tratar de descargar objetos inexistentes</li>
+                    </ul>
+				</section>
+
+
+                <section>
+                    <h2>Nueva estrategia</h2>
+                    <ul>
+                        <li>Descargar papeletas haciendo búsquedas automatizadas</li>
+                        <li>Buscar por inicio del nombre de infractor:</li>
+                        <ul>
+                            <li>AA</li>
+                            <li>AB</li>
+                            <li>AC</li>
+                            <li>...</li>
+                            <li>A0</li>
+                            <li>A1</li>
+                            <li>A2</li>
+                        </ul>
+                        <li>Descargar cada papeleta en caso haya resultados de búsqueda</li>
+                    </ul>
+                </section>
+
+
+
+
+                <section>
+                    <h2>Luego de varios días</h2>
+                    <pre><code class="hljs">import pandas as pd
+from sqlalchemy import create_engine
+
+# connect to our Sqlite database
+db = create_engine("sqlite:///papeletas.sqlite")
+
+# most common ticket
+df = pd.read_sql("SELECT infraccion FROM papeletas", db)
+total_tickets = df.count()
+print(total_tickets)</code></pre>
+
+                    Antes:
+                    <pre>
+    infraccion    117261
+    dtype: int64
+                    </pre>
+
+                    Después:
+                    <pre>
+    infraccion    309653
+    dtype: int64
+                    </pre>
+                </section>
+
+
+
+                <section>
+                    <h2>Y la infracción más común?</h2>
+
+                    <pre><code class="hljs">most_common = df['infraccion'].value_counts()
+print(most_common.head(10))
+                </pre></code>
+
+                <pre>
+    Antes:                                  Después:
+
+    L7     9346                             M20    90641
+    G28    7714                             D01    19367
+    G57    7051                             G11    12682
+    G58    6249                             G4     12623
+    G2     5425                             M17    10641
+    G31    4146                             L7      9547
+    M3     3363                             G47     9126
+    M27    3208                             G28     8150
+    G47    3046                             G41     7934
+    G7     2975                             G57     7766
+    Name: infraccion, dtype: int64          Name: infraccion, dtype: int64
+                </pre>
+                </section>
+
+
+
+
+                <section>
+                    <h2>Visualización de papeletas en el tiempo</h2>
+
+                    <pre><code class="hljs"># number of unpaid tickets by day
+df = pd.read_sql("SELECT * FROM papeletas", db)
+data_time = pd.to_datetime(df['fecha_infraccion'], format="%Y-%m-%d")
+number_tickets_by_date = data_time.value_counts()
+number_tickets_by_date.plot()
+                    </code></pre>
+                    <img src="plot2.png" />
+                </section>
+
+
+
+
+                <section>
+                    <pre><code>
+# number of unpaid tickets grouped by month
+from datetime import datetime
+key = lambda x: datetime.strptime(x.strftime("%Y-%m") + "-01", "%Y-%m-%d")
+data_time = pd.to_datetime(df['fecha_infraccion'], format="%Y-%m-%d")
+ts = data_time.map(key)
+ts.value_counts().sort_values(ascending=True).plot(title="Número de papeletas por mes")
+                    </code></pre>
+                    <img src="plot3.png" />
+                </section>
+
+
+                <section>
+                        <h2>Podemos georeferenciar los lugares de infracción</h2>
+                        <pre>
+                                     lugar_infraccion
+0                ovalo centenario gambetta 1 - callao
+1               a. more caceres gambetta - ventanilla
+2                  p. elektra y gambetta - ventanilla
+3                   p. telefono gambetta - ventanilla
+4                 ovalo elektra con gambetta - callao
+5                  nestor gambetta of rentas - callao
+6               paradero nestor gambetta - ventanilla
+7                  ov ventanilla av gambetta - callao
+8             av del bierzo y av n. gambetta - callao
+9              ov ventanilla con av gambetta - callao
+10               a m de caceres con gambetta - callao
+11                       del bierzo gambetta - callao
+12                 del bierzo c0n gambetta - 30319412
+13        av. ferroles y av. nestor gambetta - callao
+                        </pre>
+                </section>
+
+                <section>
+                    <section>
+                        <h2>Podemos georeferenciar los lugares de infracción</h2>
+                        <pre><code>GOOGLE_MAPS_URL_BASE = "https://maps.googleapis.com/maps/api/geocode/json?address="
+                        </pre></code>
+                    
+                        <iframe width="100%" height="600" src="http://jsfiddle.net/aniversarioperu/tLjywuz7/embedded/result" allowfullscreen="allowfullscreen" frameborder="0"></iframe>
+                    </section>
+
+                    <section>
+                        <a href="#" class="navigate-down">
+                            <img src="map1.png" />
+                        </a>
+                    </section>
+
+                    <section>
+                        <a href="#" class="navigate-down">
+                            <img src="map2.png" />
+                        </a>
+                    </section>
+
+                    <section>
+                        <a href="#" class="navigate-down">
+                            <img src="map3.png" />
+                        </a>
+                    </section>
+                </section>
+
+
+				<section>
+                    <h2>Lugares donde se ponen más papeletas</h2>
+
+                    <pre><code class="hljs" data-noescape>
+df = pd.read_sql("""SELECT lugar_infraccion 
+    FROM papeletas 
+    WHERE latitude IS NOT null""", db)
+places = df['lugar_infraccion'].value_counts(normalize=True) * 100
+print(places.head(10))</pre></code>
+
+                    <pre>av. nestor gambetta - callao               16.628903
+av. faucett - callao                        6.163049
+av faucett y av venezuela - callao          5.832238
+av faucett y av argentina - callao          4.617755
+av faucett y av canta callao - callao       3.321702
+av faucett y av morales duarez - callao     3.131373
+avenida tomas valle 34, Callao              2.576245
+callao - callao                             1.529433
+av pedro beltran - callao                   1.361762
+aeropuerto - callao                         1.241673
+Name: lugar_infraccion, dtype: float64
+                </pre>
+				</section>
+
+
+				<section>
+                    <h2>Papeletas más comunes por lugar</h2>
+
+                    <pre><code># Av. Faucett and Av. Venezuela
+radius = 0.0006
+lat, long = -12.062355, -77.097157
+lat_north, lat_south = lat + radius, lat - radius
+long_east, long_west = long + radius, long - radius
+df = pd.read_sql("""
+          SELECT lugar_infraccion, infraccion FROM papeletas WHERE 
+          {0} <= latitude AND latitude <= {1} AND 
+          {2} <= longitude AND longitude <= {3}
+         """.format(lat_south, lat_north, long_west, long_east), db)
+print(df.head())
+                </pre></code>
+                    
+                    <pre>                     lugar_infraccion infraccion
+0  av faucett y av venezuela - callao        C17
+1  av faucett y av venezuela - callao        C17
+2  av faucett y av venezuela - callao        E02
+3  av faucett y av venezuela - callao        A12
+4  av faucett y av venezuela - callao        C32</pre>
+				</section>
+
+				<section>
+                    <h2>Papeletas más comunes por lugar</h2>
+
+                    <pre><code># Av. Faucett and Av. Venezuela
+most_common = df['infraccion'].value_counts(normalize=True)
+print(most_common.head() * 100)
+                </pre></code>
+
+                <pre>G57    16.057660
+E22     6.537043
+L7      5.129065
+G2      4.592692
+B09     4.257459
+Name: infraccion, dtype: float64
+                </pre>
+				</section>
+
+
+				<section>
+                    <h2>Cosas por hacer</h2>
+
+                    <ul>
+                        <li>Descargar el resto de papeletas impagas.</li>
+                        <li>Tomar una muestra aleatoria del 1%, 10%</li>
+                        <li>Limpiar y normalizar los lugares de infracción</li>
+                        <li>Georeferenciar los lugares</li>
+                        <li>Hacer el heatmap</li>
+                        <li>Estimar papeletas más comunes en ubicaciones interesatnes</li>
+                    </ul>
+				</section>
+
+                <section>
+                    <h2>FIN</h2>
+                    @carlosp420
+                    <br />
+                    @aniversarioperu
+                </section>
+
+
+
+
+
+			</div>
+
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.min.js"></script>
+
+		<script>
+
+			// Full list of configuration options available here:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+				transition: Reveal.getQueryHash().transition || 'page', // default/cube/page/concave/zoom/linear/fade/none
+
+				// Parallax scrolling
+				// parallaxBackgroundImage: 'https://s3.amazonaws.com/hakim-static/reveal-js/reveal-parallax-1.jpg',
+				// parallaxBackgroundSize: '2100px 900px',
+
+				// Optional libraries used to extend on reveal.js
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+					{ src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
